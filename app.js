@@ -212,6 +212,42 @@ function makeSource(bitmap) {
   return { canvas, width, height, data: canvas.toDataURL("image/png") };
 }
 
+function makeSample() {
+  const image = document.createElement("canvas");
+  image.width = 1100;
+  image.height = 440;
+  const imageContext = image.getContext("2d");
+  imageContext.fillStyle = "#ffe9c4";
+  imageContext.font = '600 154px system-ui, -apple-system, "Segoe UI", sans-serif';
+  imageContext.textAlign = "center";
+  imageContext.textBaseline = "middle";
+  imageContext.fillText("VANTA M.", image.width / 2, image.height / 2);
+  imageContext.fillRect(400, 330, 300, 2);
+
+  const depth = document.createElement("canvas");
+  depth.width = image.width;
+  depth.height = image.height;
+  const depthContext = depth.getContext("2d");
+  const gradient = depthContext.createLinearGradient(0, 0, depth.width, depth.height);
+  gradient.addColorStop(0, "#303030");
+  gradient.addColorStop(1, "#d0d0d0");
+  depthContext.fillStyle = gradient;
+  depthContext.fillRect(0, 0, depth.width, depth.height);
+  return { image: image.toDataURL("image/png"), depth: depth.toDataURL("image/png") };
+}
+
+function showSample() {
+  emptyState.hidden = false;
+  $("#active-name").textContent = "VANTA M. · SAMPLE";
+  $("#point-count").textContent = "LOADING SAMPLE";
+  statusLine.textContent = "LIVE SAMPLE · ADD AN IMAGE TO MAKE IT YOURS";
+  cloud.setData(makeSample()).then(() => {
+    if (activeImage) return;
+    updateOptions(false);
+    $("#point-count").textContent = cloud.pointCount.toLocaleString() + " POINTS";
+  });
+}
+
 function makeDepth(values, width, height, fit) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -425,17 +461,14 @@ function clearActiveImage() {
   depthImage = "";
   sourceName = "";
   cloud.setData(null);
-  $("#active-name").textContent = "NO IMAGE SELECTED";
-  $("#point-count").textContent = "0 POINTS";
   $("#source-name").textContent = "";
   $("#source-dimensions").textContent = "";
   $("#thumb").style.backgroundImage = "";
   sourceRow.hidden = true;
-  emptyState.hidden = false;
   copyButton.disabled = true;
   downloadButton.disabled = true;
   embedField.value = "";
-  statusLine.textContent = "WAITING FOR YOUR FIRST PICTURE";
+  showSample();
   renderGallery();
 }
 
@@ -691,3 +724,4 @@ cloud.addEventListener("render-error", (event) => {
 });
 
 updateOptions();
+showSample();

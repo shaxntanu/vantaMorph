@@ -4,37 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080808">
-  <title>Field Study | Image to Particle Element</title>
-  <meta name="description" content="Turn an image into a moving particle element you can embed on a website.">
+  <title>Vanta Morph | Image to Particle Element</title>
+  <meta name="description" content="Turn any image into an interactive particle element with Vanta Morph.">
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./particle-cloud.js"></script>
   <script type="module" src="./app.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <a class="wordmark" href="./" aria-label="Field Study home"><span>FIELD</span><i> / </i><small>IMAGE → ELEMENT</small></a>
-    <div class="topnote"><span class="status-dot"></span> DEPTH MODEL · RUNS IN YOUR BROWSER</div>
-    <a class="credit" href="https://gather.be-of-dao.com" target="_blank" rel="noreferrer">INSPIRED BY GATHER · 聚</a>
+    <a class="wordmark" href="./" aria-label="Vanta Morph home"><span>VANTA</span><i> / </i><small>MORPH</small></a>
+    <div class="topnote"><span class="status-dot"></span> IMAGE → PARTICLE ELEMENT · RUNS IN YOUR BROWSER</div>
+    <a class="credit" href="https://github.com/shaxntanu/vantaMorph" target="_blank" rel="noreferrer">GITHUB ↗</a>
   </header>
 
   <main class="studio">
     <section class="workspace" aria-label="Image preview">
       <div class="stage-topline">
-        <span id="active-name">NO IMAGE SELECTED</span>
+        <span id="active-name">VANTA M. · SAMPLE</span>
         <span id="point-count">0 POINTS</span>
       </div>
       <div class="stage" id="drop-zone">
         <particle-cloud id="cloud" aria-label="Three dimensional particle image"></particle-cloud>
-        <div class="empty-state" id="empty-state">
-          <div class="empty-symbol" aria-hidden="true"><span></span><span></span><span></span></div>
-          <p class="eyebrow">DROP AN IMAGE TO BEGIN</p>
-          <p class="empty-copy">A photo, drawing, or transparent PNG.<br>It stays on this device.</p>
-          <label class="button button-light" for="file-picker">CHOOSE IMAGE</label>
+        <div class="sample-state" id="empty-state">
+          <span class="eyebrow">LIVE SAMPLE · VANTA M.</span>
+          <label class="button button-light" for="file-picker">ADD YOUR IMAGE ↗</label>
         </div>
         <div class="drag-hint" id="drag-hint">DROP TO TRANSFORM</div>
       </div>
       <div class="stage-bottomline">
-        <span id="model-status" aria-live="polite">WAITING FOR YOUR FIRST PICTURE</span>
+        <span id="model-status" aria-live="polite">LIVE SAMPLE · ADD AN IMAGE TO MAKE IT YOURS</span>
         <span>MOVE TO WAKE PARTICLES <b>·</b> DRAG TO ROTATE <b>·</b> SCROLL TO ZOOM</span>
       </div>
     </section>

@@ -24,7 +24,7 @@ The repository root is the static site root. It needs no environment variables o
 
 ## Use the particle element
 
-1. Open the deployed editor, upload an image, and adjust depth, drift, point size, and tint.
+1. Upload up to four images, then adjust depth, drift, splash, gather, the line direction, point size, tint, and particle overlays.
 2. Choose **Copy embed code** and paste the generated `<particle-cloud>` markup into your website. The snippet uses the deployed Vanta-Morph URL for `particle-cloud.js`; the image and depth map are packed into data URLs.
 3. Or choose **Download standalone HTML** to get one self-contained file with the image, depth map, and renderer.
 

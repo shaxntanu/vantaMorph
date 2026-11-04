@@ -6,16 +6,27 @@ const emptyState = $("#empty-state");
 const statusLine = $("#model-status");
 const toast = $("#toast");
 const sourceRow = $("#source-row");
+const sourceGallery = $("#source-gallery");
+const galleryNav = $("#gallery-nav");
+const linePad = $("#line-pad");
 const copyButton = $("#copy-embed");
 const downloadButton = $("#download-html");
 const embedField = $("#embed-code");
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_GALLERY_SIZE = 4;
 const MAX_IMAGE_SIDE = 520;
 const MODEL_SIDE = 224;
+const lineState = { x: 0, y: 0, angle: 1.72, side: -1 };
 
 let sourceImage = "";
 let depthImage = "";
 let sourceName = "";
+let imageGallery = [];
+let activeImage = null;
+let fileQueue = [];
+let processingQueue = false;
+let activationVersion = 0;
+let lineDrag = null;
 let currentColor = "#ffe9c4";
 let worker = null;
 let requestId = 0;
@@ -29,18 +40,74 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2100);
 }
 
-function updateOptions() {
+function updateOptions(updateSnippet = true) {
   const options = {
     amplitude: Number($("#depth-range").value) / 100,
     drift: Number($("#drift-range").value) / 100,
+    splash: Number($("#splash-range").value) / 100,
+    gather: Number($("#gather-range").value) / 100,
     pointSize: Number($("#size-range").value) / 10,
-    tint: currentColor
+    tint: currentColor,
+    track: cloudToggle("track"),
+    links: cloudToggle("links"),
+    scan: cloudToggle("scan"),
+    trails: cloudToggle("trails"),
+    marks: cloudToggle("marks"),
+    density: cloudMode("density"),
+    travel: cloudMode("travel"),
+    paper: cloudMode("paper"),
+    line: { ...lineState },
+    negative: cloudMode("tone") === "negative"
   };
   $("#depth-value").value = $("#depth-range").value;
   $("#drift-value").value = $("#drift-range").value;
+  $("#splash-value").value = $("#splash-range").value;
+  $("#gather-value").value = $("#gather-range").value;
   $("#size-value").value = $("#size-range").value;
+  updateLinePad();
   cloud.setOptions(options);
-  if (sourceImage) updateEmbed();
+  if (sourceImage && updateSnippet) updateEmbed();
+}
+
+function updateLinePad() {
+  const tx = Math.cos(lineState.angle);
+  const ty = Math.sin(lineState.angle);
+  const nx = -ty * lineState.side;
+  const ny = tx * lineState.side;
+  const x = lineState.x;
+  const y = lineState.y;
+  const stem = 0.2 + 0.45 * Number($("#drift-range").value) / 100;
+  const attrs = (selector, values) => {
+    const node = $(selector);
+    Object.entries(values).forEach(([name, value]) => node.setAttribute(name, String(Number(value.toFixed(3)))));
+  };
+  attrs("#line-axis", { x1: x - 4 * tx, y1: -(y - 4 * ty), x2: x + 4 * tx, y2: -(y + 4 * ty) });
+  attrs("#line-stem", { x1: x, y1: -y, x2: x + nx * stem, y2: -(y + ny * stem) });
+  attrs("#line-tip", { cx: x + nx * stem, cy: -(y + ny * stem) });
+  attrs("#line-end-a", { cx: x + 0.72 * tx, cy: -(y + 0.72 * ty) });
+  attrs("#line-end-b", { cx: x - 0.72 * tx, cy: -(y - 0.72 * ty) });
+  $("#line-side").setAttribute("transform", `matrix(${tx} ${-ty} ${nx} ${-ny} ${x} ${-y})`);
+}
+
+function linePadPoint(event) {
+  const rect = linePad.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) / rect.width * 2.6 - 1.3,
+    y: -((event.clientY - rect.top) / rect.height * 2.6 - 1.3)
+  };
+}
+
+function applyLinePad(updateSnippet = true) {
+  updateLinePad();
+  updateOptions(updateSnippet);
+}
+
+function cloudToggle(name) {
+  return document.querySelector(`[data-cloud-toggle="${name}"]`)?.getAttribute("aria-pressed") === "true";
+}
+
+function cloudMode(name) {
+  return document.querySelector(`[data-cloud-mode="${name}"].active`)?.dataset.value || "";
 }
 
 function getWorker() {
@@ -169,64 +236,218 @@ function makeDepth(values, width, height, fit) {
   return canvas.toDataURL("image/png");
 }
 
-function setSourceUI(file, bitmap, source) {
-  sourceImage = source.data;
-  sourceName = file.name;
-  $("#active-name").textContent = file.name.toUpperCase();
-  $("#source-name").textContent = file.name;
-  $("#source-dimensions").textContent = bitmap.width + " × " + bitmap.height;
-  $("#thumb").style.backgroundImage = "url('" + sourceImage + "')";
-  sourceRow.hidden = false;
-  emptyState.hidden = true;
-  copyButton.disabled = false;
-  downloadButton.disabled = false;
+function renderGallery() {
+  sourceGallery.replaceChildren();
+  imageGallery.forEach((item, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "gallery-thumb" + (item === activeImage ? " active" : "");
+    button.dataset.state = item.status;
+    button.style.backgroundImage = `url("${item.image || item.previewUrl}")`;
+    button.textContent = item.status === "ready" ? "" : item.status === "failed" ? "!" : "…";
+    button.title = `${item.name} · ${item.status}`;
+    button.setAttribute("aria-label", `Picture ${index + 1}: ${item.name}, ${item.status}`);
+    button.setAttribute("aria-pressed", String(item === activeImage));
+    button.addEventListener("click", () => activateImage(item));
+    sourceGallery.append(button);
+  });
+  sourceGallery.hidden = imageGallery.length === 0;
+  galleryNav.hidden = imageGallery.length < 2;
+  const activeIndex = imageGallery.indexOf(activeImage);
+  $("#gallery-index").textContent = `${String(Math.max(0, activeIndex) + 1).padStart(2, "0")} / ${String(imageGallery.length).padStart(2, "0")}`;
 }
 
-async function handleFile(file) {
-  if (!file) return;
-  if (file.type && !file.type.startsWith("image/")) {
-    showToast("Choose an image file.");
-    return;
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    showToast("That image is over 25 MB.");
-    return;
-  }
+function activateImage(item) {
+  if (!imageGallery.includes(item)) return;
+  activeImage = item;
+  const version = ++activationVersion;
+  renderGallery();
+  emptyState.hidden = true;
 
-  statusLine.textContent = "READING IMAGE · KEEP THIS TAB OPEN";
-  let bitmap;
-  try {
-    bitmap = await decodeImage(file);
-    const source = makeSource(bitmap);
-    const model = makeModelInput(bitmap);
-    setSourceUI(file, bitmap, source);
-    statusLine.textContent = "LOADING DEPTH MODEL · IMAGE STAYS LOCAL";
-
-    let depthValues;
-    let fallback = false;
-    try {
-      depthValues = await inferDepth(model.tensor);
-    } catch (_error) {
-      // shortcut: luminance has no scene geometry; restore FastDepth when the runtime is reachable.
-      depthValues = model.luma;
-      fallback = true;
+  if (item.status === "failed") {
+    const displayed = imageGallery.find((entry) => entry !== item && entry.status === "ready" && entry.image === sourceImage);
+    if (displayed) {
+      activeImage = displayed;
+      renderGallery();
+      statusLine.textContent = displayed.fallback
+        ? "DEPTH ESTIMATED FROM IMAGE LIGHT · LOCAL FALLBACK"
+        : "DEPTH READY · ALL IMAGE PROCESSING STAYS LOCAL";
+    } else {
+      $("#active-name").textContent = item.name.toUpperCase();
+      sourceRow.hidden = true;
+      emptyState.hidden = false;
+      copyButton.disabled = true;
+      downloadButton.disabled = true;
+      $("#point-count").textContent = "0 POINTS";
+      statusLine.textContent = "COULD NOT READ IMAGE";
     }
-    depthImage = makeDepth(depthValues, source.width, source.height, model);
-    await cloud.setData({ image: sourceImage, depth: depthImage });
+    return;
+  }
+  if (item.status !== "ready") {
+    if (!sourceImage) {
+      $("#active-name").textContent = item.name.toUpperCase();
+      sourceRow.hidden = true;
+      emptyState.hidden = true;
+      copyButton.disabled = true;
+      downloadButton.disabled = true;
+      $("#point-count").textContent = "PROCESSING";
+    }
+    statusLine.textContent = item.status === "depth" ? "LOADING DEPTH MODEL · IMAGE STAYS LOCAL" : "READING IMAGE · KEEP THIS TAB OPEN";
+    return;
+  }
+
+  sourceImage = item.image;
+  depthImage = item.depth;
+  sourceName = item.name;
+  $("#active-name").textContent = item.name.toUpperCase();
+  $("#source-name").textContent = item.name;
+  $("#source-dimensions").textContent = `${item.width} × ${item.height}`;
+  $("#thumb").style.backgroundImage = `url("${sourceImage}")`;
+  sourceRow.hidden = false;
+  copyButton.disabled = true;
+  downloadButton.disabled = true;
+  statusLine.textContent = "TRANSFORMING PARTICLES";
+  cloud.setData({ image: sourceImage, depth: depthImage }).then(() => {
+    if (version !== activationVersion) return;
     updateOptions();
     $("#point-count").textContent = cloud.pointCount.toLocaleString() + " POINTS";
-    statusLine.textContent = fallback
+    statusLine.textContent = item.fallback
       ? "DEPTH ESTIMATED FROM IMAGE LIGHT · LOCAL FALLBACK"
       : "DEPTH READY · ALL IMAGE PROCESSING STAYS LOCAL";
+    copyButton.disabled = false;
+    downloadButton.disabled = false;
     updateEmbed();
-    if (fallback) showToast("Depth model unavailable; a light-based depth map is ready.");
-  } catch (_error) {
-    statusLine.textContent = "COULD NOT READ IMAGE";
-    showToast("This browser could not decode that image.");
+  });
+}
+
+async function processQueue() {
+  if (processingQueue) return;
+  processingQueue = true;
+  try {
+    while (fileQueue.length) {
+      const item = fileQueue.shift();
+      if (!imageGallery.includes(item)) continue;
+      item.status = "reading";
+      renderGallery();
+      if (activeImage === item) statusLine.textContent = "READING IMAGE · KEEP THIS TAB OPEN";
+      let bitmap;
+      try {
+        bitmap = await decodeImage(item.file);
+        if (!imageGallery.includes(item)) continue;
+        const source = makeSource(bitmap);
+        const model = makeModelInput(bitmap);
+        item.image = source.data;
+        item.width = bitmap.width;
+        item.height = bitmap.height;
+        item.status = "depth";
+        renderGallery();
+        if (activeImage === item) statusLine.textContent = "LOADING DEPTH MODEL · IMAGE STAYS LOCAL";
+
+        let depthValues;
+        try {
+          depthValues = await inferDepth(model.tensor);
+        } catch (_error) {
+          // shortcut: luminance has no scene geometry; restore FastDepth when the runtime is reachable.
+          depthValues = model.luma;
+          item.fallback = true;
+        }
+        if (!imageGallery.includes(item)) continue;
+        item.depth = makeDepth(depthValues, source.width, source.height, model);
+        item.status = "ready";
+        item.file = null;
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        item.previewUrl = "";
+        renderGallery();
+        if (activeImage === item) {
+          activateImage(item);
+          if (item.fallback) showToast("Depth model unavailable; a light-based depth map is ready.");
+        }
+      } catch (_error) {
+        if (!imageGallery.includes(item)) continue;
+        item.status = "failed";
+        item.file = null;
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        item.previewUrl = "";
+        renderGallery();
+        if (activeImage === item) activateImage(item);
+        showToast("This browser could not decode that image.");
+      } finally {
+        if (bitmap) bitmap.close();
+      }
+    }
   } finally {
-    if (bitmap) bitmap.close();
-    picker.value = "";
+    processingQueue = false;
   }
+}
+
+function handleFiles(files) {
+  const selected = Array.from(files || []);
+  if (!selected.length) return;
+  const valid = selected.filter((file) => {
+    if (file.type && !file.type.startsWith("image/")) {
+      showToast("Choose image files only.");
+      return false;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      showToast(`${file.name} is over 25 MB.`);
+      return false;
+    }
+    return true;
+  });
+  const available = MAX_GALLERY_SIZE - imageGallery.length;
+  if (available <= 0) {
+    showToast("Remove a picture before adding another.");
+    picker.value = "";
+    return;
+  }
+  if (valid.length > available) showToast(`Only ${available} more picture${available === 1 ? "" : "s"} fit in the gallery.`);
+  const added = valid.slice(0, available).map((file) => ({
+    file,
+    name: file.name,
+    previewUrl: URL.createObjectURL(file),
+    status: "queued",
+    image: "",
+    depth: "",
+    fallback: false
+  }));
+  imageGallery.push(...added);
+  if (!activeImage && added[0]) activateImage(added[0]);
+  else renderGallery();
+  fileQueue.push(...added);
+  picker.value = "";
+  processQueue();
+}
+
+function clearActiveImage() {
+  activationVersion++;
+  activeImage = null;
+  sourceImage = "";
+  depthImage = "";
+  sourceName = "";
+  cloud.setData(null);
+  $("#active-name").textContent = "NO IMAGE SELECTED";
+  $("#point-count").textContent = "0 POINTS";
+  $("#source-name").textContent = "";
+  $("#source-dimensions").textContent = "";
+  $("#thumb").style.backgroundImage = "";
+  sourceRow.hidden = true;
+  emptyState.hidden = false;
+  copyButton.disabled = true;
+  downloadButton.disabled = true;
+  embedField.value = "";
+  statusLine.textContent = "WAITING FOR YOUR FIRST PICTURE";
+  renderGallery();
+}
+
+function removeActiveImage() {
+  const index = imageGallery.indexOf(activeImage);
+  if (index < 0) return;
+  const [removed] = imageGallery.splice(index, 1);
+  if (removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+  fileQueue = fileQueue.filter((item) => item !== removed);
+  const next = imageGallery[index] || imageGallery[index - 1];
+  if (next) activateImage(next);
+  else clearActiveImage();
 }
 
 function escapeAttribute(value) {
@@ -249,12 +470,26 @@ function updateEmbed() {
     '  depth="' + escapeAttribute(depthImage) + '"',
     '  amplitude="' + (Number($("#depth-range").value) / 100).toFixed(2) + '"',
     '  drift="' + (Number($("#drift-range").value) / 100).toFixed(2) + '"',
+    '  splash="' + (Number($("#splash-range").value) / 100).toFixed(2) + '"',
+    '  gather="' + (Number($("#gather-range").value) / 100).toFixed(2) + '"',
     '  point-size="' + (Number($("#size-range").value) / 10).toFixed(1) + '"',
+    '  line-x="' + lineState.x.toFixed(3) + '" line-y="' + lineState.y.toFixed(3) + '"',
+    '  line-angle="' + lineState.angle.toFixed(3) + '" line-side="' + lineState.side + '"',
+    '  track="' + optionsValue("track") + '" links="' + optionsValue("links") + '"',
+    '  scan="' + optionsValue("scan") + '" trails="' + optionsValue("trails") + '"',
+    '  marks="' + optionsValue("marks") + '" density="' + cloudMode("density") + '"',
+    '  travel="' + cloudMode("travel") + '"',
+    '  paper="' + cloudMode("paper") + '" negative="' + optionsValue("negative") + '"',
     '  tint="' + currentColor + '"',
     '  style="display:block;width:100%;height:420px">',
     '</particle-cloud>'
   ].join("\n");
   embedField.value = code;
+}
+
+function optionsValue(name) {
+  const value = name === "negative" ? cloudMode("tone") === "negative" : cloudToggle(name);
+  return String(value);
 }
 
 function downloadStandalone() {
@@ -269,7 +504,7 @@ function downloadStandalone() {
       const html = [
         "<!doctype html>",
         '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">',
-        "<title>" + escapeAttribute(sourceName) + " — Particle Element</title>",
+        "<title>" + escapeAttribute(sourceName) + " | Particle Element</title>",
         "<style>html,body{margin:0;width:100%;height:100%;background:#050505}particle-cloud{display:block;width:100vw;height:100vh}</style>",
         "</head><body>",
         '<script>' + safeScript + "<\/script>",
@@ -277,7 +512,16 @@ function downloadStandalone() {
         ' depth="' + escapeAttribute(depthImage) + '"',
         ' amplitude="' + (Number($("#depth-range").value) / 100).toFixed(2) + '"',
         ' drift="' + (Number($("#drift-range").value) / 100).toFixed(2) + '"',
+        ' splash="' + (Number($("#splash-range").value) / 100).toFixed(2) + '"',
+        ' gather="' + (Number($("#gather-range").value) / 100).toFixed(2) + '"',
         ' point-size="' + (Number($("#size-range").value) / 10).toFixed(1) + '"',
+        ' line-x="' + lineState.x.toFixed(3) + '" line-y="' + lineState.y.toFixed(3) + '"',
+        ' line-angle="' + lineState.angle.toFixed(3) + '" line-side="' + lineState.side + '"',
+        ' track="' + optionsValue("track") + '" links="' + optionsValue("links") + '"',
+        ' scan="' + optionsValue("scan") + '" trails="' + optionsValue("trails") + '"',
+        ' marks="' + optionsValue("marks") + '" density="' + cloudMode("density") + '"',
+        ' travel="' + cloudMode("travel") + '"',
+        ' paper="' + cloudMode("paper") + '" negative="' + optionsValue("negative") + '"',
         ' tint="' + currentColor + '"></particle-cloud>',
         "</body></html>"
       ].join("\n");
@@ -294,27 +538,65 @@ function downloadStandalone() {
     .catch(() => showToast("Could not create the standalone file."));
 }
 
-picker.addEventListener("change", () => handleFile(picker.files[0]));
-$("#remove-image").addEventListener("click", () => {
-  sourceImage = "";
-  depthImage = "";
-  sourceName = "";
-  cloud.setData(null);
-  $("#active-name").textContent = "NO IMAGE SELECTED";
-  $("#point-count").textContent = "0 POINTS";
-  $("#source-name").textContent = "";
-  $("#source-dimensions").textContent = "";
-  $("#thumb").style.backgroundImage = "";
-  sourceRow.hidden = true;
-  emptyState.hidden = false;
-  copyButton.disabled = true;
-  downloadButton.disabled = true;
-  embedField.value = "";
-  statusLine.textContent = "WAITING FOR YOUR FIRST PICTURE";
+picker.addEventListener("change", () => handleFiles(picker.files));
+$("#remove-image").addEventListener("click", removeActiveImage);
+$("#gallery-prev").addEventListener("click", () => {
+  const index = imageGallery.indexOf(activeImage);
+  if (index >= 0 && imageGallery.length > 1) activateImage(imageGallery[(index + imageGallery.length - 1) % imageGallery.length]);
+});
+$("#gallery-next").addEventListener("click", () => {
+  const index = imageGallery.indexOf(activeImage);
+  if (index >= 0 && imageGallery.length > 1) activateImage(imageGallery[(index + 1) % imageGallery.length]);
 });
 $("#depth-range").addEventListener("input", updateOptions);
 $("#drift-range").addEventListener("input", updateOptions);
+$("#splash-range").addEventListener("input", updateOptions);
+$("#gather-range").addEventListener("input", updateOptions);
 $("#size-range").addEventListener("input", updateOptions);
+linePad.addEventListener("pointerdown", (event) => {
+  const point = linePadPoint(event);
+  const dx = point.x - lineState.x;
+  const dy = point.y - lineState.y;
+  const tx = Math.cos(lineState.angle);
+  const ty = Math.sin(lineState.angle);
+  const along = dx * tx + dy * ty;
+  const across = -dx * ty + dy * tx;
+  if (Math.abs(across) > 0.24) {
+    lineState.side = across < 0 ? -1 : 1;
+    applyLinePad();
+    return;
+  }
+  lineDrag = { kind: Math.abs(along) > 0.42 ? "turn" : "move", point, x: lineState.x, y: lineState.y };
+  linePad.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+linePad.addEventListener("pointermove", (event) => {
+  if (!lineDrag) return;
+  const point = linePadPoint(event);
+  if (lineDrag.kind === "move") {
+    lineState.x = Math.max(-1.1, Math.min(1.1, lineDrag.x + point.x - lineDrag.point.x));
+    lineState.y = Math.max(-1.1, Math.min(1.1, lineDrag.y + point.y - lineDrag.point.y));
+  } else if (Math.hypot(point.x - lineState.x, point.y - lineState.y) > 0.08) {
+    lineState.angle = Math.atan2(point.y - lineState.y, point.x - lineState.x);
+  }
+  applyLinePad(false);
+});
+linePad.addEventListener("pointerup", () => { lineDrag = null; updateOptions(); });
+linePad.addEventListener("pointercancel", () => { lineDrag = null; updateOptions(); });
+linePad.addEventListener("keydown", (event) => {
+  const amount = event.shiftKey ? 3 : 1;
+  if (event.key === "ArrowLeft") lineState.angle += 0.05 * amount;
+  else if (event.key === "ArrowRight") lineState.angle -= 0.05 * amount;
+  else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    const offset = (event.key === "ArrowUp" ? 0.04 : -0.04) * amount * lineState.side;
+    lineState.x -= Math.sin(lineState.angle) * offset;
+    lineState.y += Math.cos(lineState.angle) * offset;
+  } else if (event.key.toLowerCase() === "f") lineState.side *= -1;
+  else return;
+  event.preventDefault();
+  event.stopPropagation();
+  applyLinePad();
+});
 
 document.querySelectorAll(".swatch").forEach((button) => {
   button.addEventListener("click", () => {
@@ -324,12 +606,34 @@ document.querySelectorAll(".swatch").forEach((button) => {
     updateOptions();
   });
 });
+document.querySelectorAll("[data-cloud-toggle]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const pressed = button.getAttribute("aria-pressed") !== "true";
+    button.setAttribute("aria-pressed", String(pressed));
+    button.classList.toggle("active", pressed);
+    button.blur();
+    updateOptions();
+  });
+});
+document.querySelectorAll("[data-cloud-mode]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const group = button.dataset.cloudMode;
+    document.querySelectorAll(`[data-cloud-mode="${group}"]`).forEach((item) => {
+      const selected = item === button;
+      item.classList.toggle("active", selected);
+      item.setAttribute("aria-pressed", String(selected));
+    });
+    button.blur();
+    updateOptions();
+  });
+});
 $("#custom-color").addEventListener("input", (event) => {
   currentColor = event.target.value;
   document.querySelectorAll(".swatch").forEach((item) => item.classList.remove("selected"));
   updateOptions();
 });
 $("#reset-view").addEventListener("click", () => cloud.resetView());
+$("#light-burst").addEventListener("click", (event) => { cloud.triggerLight(); event.currentTarget.blur(); });
 $("#fullscreen").addEventListener("click", () => {
   if (!document.fullscreenElement) document.querySelector(".workspace").requestFullscreen?.();
   else document.exitFullscreen?.();
@@ -356,13 +660,28 @@ dropZone.addEventListener("dragleave", (event) => {
 dropZone.addEventListener("drop", (event) => {
   event.preventDefault();
   dropZone.classList.remove("dragging");
-  handleFile(event.dataTransfer.files[0]);
+  handleFiles(event.dataTransfer.files);
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.target.matches("input,textarea,select,button")) return;
-  if (event.key.toLowerCase() === "f") $("#fullscreen").click();
-  if (event.key.toLowerCase() === "r") cloud.resetView();
+  const key = event.key.toLowerCase();
+  if (key === " " && imageGallery.length > 1 && !event.repeat) {
+    event.preventDefault();
+    $("#gallery-next").click();
+  }
+  if (key === "f") $("#fullscreen").click();
+  if (key === "r") cloud.resetView();
+  if (key === "s") cloud.triggerLight();
+  if (key === "h") document.body.classList.toggle("hide-ui");
+  if (key === "m") {
+    const next = cloudMode("travel") === "swarm" ? "melt" : "swarm";
+    document.querySelector(`[data-cloud-mode="travel"][data-value="${next}"]`).click();
+  }
+  if (key === "b") {
+    const next = cloudMode("paper") === "dark" ? "light" : "dark";
+    document.querySelector(`[data-cloud-mode="paper"][data-value="${next}"]`).click();
+  }
 });
 cloud.addEventListener("points-ready", (event) => {
   $("#point-count").textContent = event.detail.count.toLocaleString() + " POINTS";

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080808">
+  <title>Field Study — Image to Particle Element</title>
+  <meta name="description" content="Turn an image into a moving particle element you can embed on a website.">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./particle-cloud.js"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="./" aria-label="Field Study home"><span>FIELD</span><i> / </i><small>IMAGE → ELEMENT</small></a>
+    <div class="topnote"><span class="status-dot"></span> DEPTH MODEL · RUNS IN YOUR BROWSER</div>
+    <a class="credit" href="https://gather.be-of-dao.com" target="_blank" rel="noreferrer">INSPIRED BY GATHER · 聚</a>
+  </header>
+
+  <main class="studio">
+    <section class="workspace" aria-label="Image preview">
+      <div class="stage-topline">
+        <span id="active-name">NO IMAGE SELECTED</span>
+        <span id="point-count">0 POINTS</span>
+      </div>
+      <div class="stage" id="drop-zone">
+        <particle-cloud id="cloud" aria-label="Three dimensional particle image"></particle-cloud>
+        <div class="empty-state" id="empty-state">
+          <div class="empty-symbol" aria-hidden="true"><span></span><span></span><span></span></div>
+          <p class="eyebrow">DROP AN IMAGE TO BEGIN</p>
+          <p class="empty-copy">A photo, drawing, or transparent PNG.<br>It stays on this device.</p>
+          <label class="button button-light" for="file-picker">CHOOSE IMAGE</label>
+        </div>
+        <div class="drag-hint" id="drag-hint">DROP TO TRANSFORM</div>
+      </div>
+      <div class="stage-bottomline">
+        <span id="model-status" aria-live="polite">WAITING FOR YOUR FIRST PICTURE</span>
+        <span>DRAG TO ROTATE <b>·</b> SCROLL TO ZOOM</span>
+      </div>
+    </section>
+
+    <aside class="inspector" aria-label="Image and particle controls">
+      <section class="panel source-panel">
+        <div class="panel-heading"><span>01 / IMAGE</span><span class="panel-mark">↗</span></div>
+        <label class="upload-box" for="file-picker" id="upload-box">
+          <span class="upload-plus">+</span>
+          <span><strong>ADD AN IMAGE</strong><small>JPG · PNG · WEBP · SVG · up to 25 MB</small></span>
+          <span class="upload-arrow">↗</span>
+        </label>
+        <input id="file-picker" class="file-picker" type="file" accept="image/*">
+        <div class="source-row" id="source-row" hidden>
+          <div class="thumb" id="thumb"></div>
+          <div class="source-info"><strong id="source-name"></strong><small id="source-dimensions"></small></div>
+          <button class="icon-button" id="remove-image" type="button" aria-label="Remove image" title="Remove image">×</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading"><span>02 / FIELD</span><span class="muted">ADJUST</span></div>
+        <label class="range-control" for="depth-range">
+          <span><span>DEPTH</span><output id="depth-value">72</output></span>
+          <input id="depth-range" type="range" min="0" max="160" value="72">
+        </label>
+        <label class="range-control" for="drift-range">
+          <span><span>DRIFT</span><output id="drift-value">35</output></span>
+          <input id="drift-range" type="range" min="0" max="100" value="35">
+        </label>
+        <label class="range-control" for="size-range">
+          <span><span>POINT SIZE</span><output id="size-value">24</output></span>
+          <input id="size-range" type="range" min="5" max="36" value="24">
+        </label>
+        <div class="color-control">
+          <span class="control-label">LIGHT</span>
+          <div class="swatches" role="group" aria-label="Particle tint">
+            <button class="swatch selected" type="button" data-color="#ffe9c4" aria-label="Warm white" title="Warm white"></button>
+            <button class="swatch" type="button" data-color="#d7eaff" aria-label="Ice blue" title="Ice blue"></button>
+            <button class="swatch" type="button" data-color="#ffb86a" aria-label="Amber" title="Amber"></button>
+            <button class="swatch" type="button" data-color="#9cddae" aria-label="Jade" title="Jade"></button>
+            <button class="swatch" type="button" data-color="#d3a8ff" aria-label="Violet" title="Violet"></button>
+            <input id="custom-color" class="custom-color" type="color" value="#ffe9c4" aria-label="Choose custom light color">
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="button button-quiet" id="reset-view" type="button">RESET VIEW <kbd>R</kbd></button>
+          <button class="button button-quiet" id="fullscreen" type="button">FULL SCREEN <kbd>F</kbd></button>
+        </div>
+      </section>
+
+      <section class="panel export-panel">
+        <div class="panel-heading"><span>03 / USE ON YOUR SITE</span><span class="muted">READY TO EMBED</span></div>
+        <p class="export-copy">Your image and depth map are packed into a standalone element. No upload service or build step.</p>
+        <div class="export-actions">
+          <button class="button button-light" id="copy-embed" type="button" disabled>COPY EMBED CODE</button>
+          <button class="download-button" id="download-html" type="button" disabled>DOWNLOAD STANDALONE HTML <span>↓</span></button>
+        </div>
+        <details class="code-details">
+          <summary>PREVIEW EMBED CODE</summary>
+          <textarea id="embed-code" readonly spellcheck="false" aria-label="Embed code preview"></textarea>
+        </details>
+      </section>
+
+      <footer class="inspector-footer">
+        <span>PRIVATE BY DESIGN</span>
+        <span>IMAGE PROCESSING STAYS LOCAL</span>
+      </footer>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

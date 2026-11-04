@@ -212,16 +212,18 @@ function makeSource(bitmap) {
   return { canvas, width, height, data: canvas.toDataURL("image/png") };
 }
 
-function makeSample() {
+async function makeSample() {
+  await document.fonts.load('500 196px "Space Grotesk"').catch(() => []);
   const image = document.createElement("canvas");
   image.width = 1100;
   image.height = 440;
   const imageContext = image.getContext("2d");
   imageContext.fillStyle = "#ffe9c4";
-  imageContext.font = '600 154px system-ui, -apple-system, "Segoe UI", sans-serif';
+  imageContext.font = '500 196px "Space Grotesk", sans-serif';
+  imageContext.letterSpacing = "-7px";
   imageContext.textAlign = "center";
   imageContext.textBaseline = "middle";
-  imageContext.fillText("VANTA M.", image.width / 2, image.height / 2);
+  imageContext.fillText("vantaM.", image.width / 2, image.height / 2);
   imageContext.fillRect(400, 330, 300, 2);
 
   const depth = document.createElement("canvas");
@@ -236,16 +238,17 @@ function makeSample() {
   return { image: image.toDataURL("image/png"), depth: depth.toDataURL("image/png") };
 }
 
-function showSample() {
+async function showSample() {
   emptyState.hidden = false;
-  $("#active-name").textContent = "VANTA M. · SAMPLE";
+  $("#active-name").textContent = "vantaM. · SAMPLE";
   $("#point-count").textContent = "LOADING SAMPLE";
   statusLine.textContent = "LIVE SAMPLE · ADD AN IMAGE TO MAKE IT YOURS";
-  cloud.setData(makeSample()).then(() => {
-    if (activeImage) return;
-    updateOptions(false);
-    $("#point-count").textContent = cloud.pointCount.toLocaleString() + " POINTS";
-  });
+  const sample = await makeSample();
+  if (activeImage) return;
+  await cloud.setData(sample);
+  if (activeImage) return;
+  updateOptions(false);
+  $("#point-count").textContent = cloud.pointCount.toLocaleString() + " POINTS";
 }
 
 function makeDepth(values, width, height, fit) {

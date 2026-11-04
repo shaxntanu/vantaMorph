@@ -146,9 +146,12 @@ input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: 0; bo
 .swatch[data-color="#ffb86a"] { --swatch: #ffb86a; }
 .swatch[data-color="#9cddae"] { --swatch: #9cddae; }
 .swatch[data-color="#d3a8ff"] { --swatch: #d3a8ff; }
-.custom-color { background: none; overflow: hidden; }
+.custom-color {
+  width: 20px; height: 20px; padding: 3px; border: 0; border-radius: 50%; overflow: hidden;
+  background: conic-gradient(#ff4c4c, #ffd84a, #6fdb78, #45d8d1, #5685f4, #a65ced, #ef5ba9, #ff4c4c);
+}
 .custom-color::-webkit-color-swatch-wrapper { padding: 0; }
-.custom-color::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.custom-color::-webkit-color-swatch { border: 1px solid #111; border-radius: 50%; }
 .button-row { display: flex; gap: 8px; margin-top: 21px; }
 .button, .download-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 37px;
@@ -184,6 +187,21 @@ kbd { color: #74746d; font: 8px var(--mono); }
   font: 10px var(--mono); letter-spacing: .04em; opacity: 0; pointer-events: none; transition: .2s;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.warning-dialog {
+  width: min(430px, calc(100vw - 32px)); max-width: none; padding: 0;
+  border: 1px solid #383833; background: #0d0d0d; color: var(--text);
+}
+.warning-dialog::backdrop { background: rgba(0, 0, 0, .76); }
+.warning-card { padding: 24px; }
+.warning-kicker {
+  display: flex; align-items: center; gap: 9px; margin: 0;
+  color: #d3b582; font: 9px var(--mono); letter-spacing: .16em;
+}
+.warning-kicker::before { width: 5px; height: 5px; border-radius: 50%; background: #d3b582; content: ""; }
+.warning-card h2 { margin: 19px 0 10px; font: 500 20px/1.2 var(--sans); letter-spacing: -.03em; }
+.warning-copy { margin: 0; color: #aaa99f; font-size: 12px; line-height: 1.7; }
+.warning-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.warning-actions .button { flex: 0 0 auto; }
 @media (max-width: 980px) {
   .studio { grid-template-columns: minmax(0, 1fr) 300px; }
   .workspace { padding-left: 14px; padding-right: 14px; }
@@ -206,4 +224,6 @@ kbd { color: #74746d; font: 8px var(--mono); }
   .stage-bottomline { font-size: 7px; }
   .button-row { flex-direction: column; }
   .mode-pair { gap: 8px; }
+  .warning-card { padding: 20px; }
+  .warning-actions .button { padding: 0 8px; font-size: 8px; }
 }

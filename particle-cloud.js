@@ -83,6 +83,13 @@ const fragmentSource = [
   "}"
 ].join("\n");
 
+const DEFAULT_ROTATION = [0.14, -0.16];
+
+function shortestAngle(from, to) {
+  const turn = Math.PI * 2;
+  return ((to - from + Math.PI) % turn + turn) % turn - Math.PI;
+}
+
 function makeImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -105,8 +112,9 @@ class ParticleCloud extends HTMLElement {
       density: "sparse", paper: "dark", negative: true, travel: "swarm",
       line: { x: 0, y: 0, angle: 1.72, side: -1 }
     };
-    this._rotation = [0.14, -0.16];
+    this._rotation = [...DEFAULT_ROTATION];
     this._zoom = 1;
+    this._viewReset = null;
     this._timeStart = performance.now();
     this._frame = 0;
     this._version = 0;
@@ -237,8 +245,12 @@ class ParticleCloud extends HTMLElement {
   }
 
   resetView() {
-    this._rotation = [0.14, -0.16];
-    this._zoom = 1;
+    this._viewReset = {
+      start: performance.now(),
+      fromRotation: [...this._rotation],
+      toRotation: this._rotation.map((angle, index) => angle + shortestAngle(angle, DEFAULT_ROTATION[index])),
+      fromZoom: this._zoom
+    };
   }
 
   _readAttributes() {
@@ -316,6 +328,7 @@ class ParticleCloud extends HTMLElement {
 
   _bindControls() {
     this.canvas.addEventListener("pointerdown", (event) => {
+      this._viewReset = null;
       this._drag = { x: event.clientX, y: event.clientY };
       this.canvas.classList.add("drag");
       this.canvas.setPointerCapture(event.pointerId);
@@ -337,9 +350,11 @@ class ParticleCloud extends HTMLElement {
     this.canvas.addEventListener("dblclick", () => this.resetView());
     this.canvas.addEventListener("wheel", (event) => {
       event.preventDefault();
+      this._viewReset = null;
       this._zoom = Math.min(1.9, Math.max(0.58, this._zoom - event.deltaY * 0.001));
     }, { passive: false });
     this.canvas.addEventListener("keydown", (event) => {
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "+", "=", "-"].includes(event.key)) this._viewReset = null;
       const amount = event.shiftKey ? 0.12 : 0.05;
       if (event.key === "ArrowLeft") this._rotation[1] -= amount;
       if (event.key === "ArrowRight") this._rotation[1] += amount;
@@ -851,6 +866,19 @@ class ParticleCloud extends HTMLElement {
   }
 
   _loop() {
+    if (this._viewReset) {
+      const reset = this._viewReset;
+      const progress = Math.min(1, (performance.now() - reset.start) / 520);
+      const eased = progress * progress * (3 - 2 * progress);
+      this._rotation[0] = reset.fromRotation[0] + (reset.toRotation[0] - reset.fromRotation[0]) * eased;
+      this._rotation[1] = reset.fromRotation[1] + (reset.toRotation[1] - reset.fromRotation[1]) * eased;
+      this._zoom = reset.fromZoom + (1 - reset.fromZoom) * eased;
+      if (progress === 1) {
+        this._rotation = [...DEFAULT_ROTATION];
+        this._zoom = 1;
+        this._viewReset = null;
+      }
+    }
     this._draw();
     this._frame = requestAnimationFrame(() => this._loop());
   }

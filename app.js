@@ -12,6 +12,7 @@ const linePad = $("#line-pad");
 const copyButton = $("#copy-embed");
 const downloadButton = $("#download-html");
 const embedField = $("#embed-code");
+const lightWarning = $("#light-warning");
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_GALLERY_SIZE = 4;
 const MAX_IMAGE_SIDE = 520;
@@ -651,17 +652,30 @@ document.querySelectorAll("[data-cloud-toggle]").forEach((button) => {
     updateOptions();
   });
 });
+function applyCloudMode(button) {
+  const group = button.dataset.cloudMode;
+  document.querySelectorAll(`[data-cloud-mode="${group}"]`).forEach((item) => {
+    const selected = item === button;
+    item.classList.toggle("active", selected);
+    item.setAttribute("aria-pressed", String(selected));
+  });
+  button.blur();
+  updateOptions();
+}
+
 document.querySelectorAll("[data-cloud-mode]").forEach((button) => {
   button.addEventListener("click", () => {
-    const group = button.dataset.cloudMode;
-    document.querySelectorAll(`[data-cloud-mode="${group}"]`).forEach((item) => {
-      const selected = item === button;
-      item.classList.toggle("active", selected);
-      item.setAttribute("aria-pressed", String(selected));
-    });
-    button.blur();
-    updateOptions();
+    if (button.dataset.cloudMode === "paper" && button.dataset.value === "light" && cloudMode("paper") !== "light") {
+      lightWarning.showModal();
+      return;
+    }
+    applyCloudMode(button);
   });
+});
+$("#keep-dark").addEventListener("click", () => lightWarning.close());
+$("#confirm-light").addEventListener("click", () => {
+  lightWarning.close();
+  applyCloudMode(document.querySelector('[data-cloud-mode="paper"][data-value="light"]'));
 });
 $("#custom-color").addEventListener("input", (event) => {
   currentColor = event.target.value;

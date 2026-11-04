@@ -36,7 +36,7 @@
       </div>
       <div class="stage-bottomline">
         <span id="model-status" aria-live="polite">LIVE SAMPLE · ADD AN IMAGE TO MAKE IT YOURS</span>
-        <span>MOVE TO WAKE PARTICLES <b>·</b> DRAG TO ROTATE <b>·</b> SCROLL TO ZOOM</span>
+        <span>MOVE TO WAKE PARTICLES <b>·</b> DRAG TO ROTATE <b>·</b> SCROLL TO ZOOM <b>·</b> DOUBLE CLICK TO RESET</span>
       </div>
     </section>
 
@@ -105,7 +105,7 @@
             <button class="swatch" type="button" data-color="#ffb86a" aria-label="Amber" title="Amber"></button>
             <button class="swatch" type="button" data-color="#9cddae" aria-label="Jade" title="Jade"></button>
             <button class="swatch" type="button" data-color="#d3a8ff" aria-label="Violet" title="Violet"></button>
-            <input id="custom-color" class="custom-color" type="color" value="#ffe9c4" aria-label="Choose custom light color">
+            <input id="custom-color" class="custom-color" type="color" value="#ffe9c4" aria-label="Choose custom light color" title="Choose a custom particle color">
           </div>
         </div>
         <div class="interaction-control">
@@ -174,6 +174,18 @@
       </footer>
     </aside>
   </main>
+
+  <dialog class="warning-dialog" id="light-warning" aria-labelledby="light-warning-title" aria-describedby="light-warning-copy">
+    <div class="warning-card">
+      <p class="warning-kicker">DISPLAY WARNING · LIGHT MODE</p>
+      <h2 id="light-warning-title">Bright background ahead</h2>
+      <p id="light-warning-copy">Switching to light mode flashes the field to bright white immediately. The sudden brightness change may be uncomfortable.</p>
+      <div class="warning-actions">
+        <button class="button button-quiet" id="keep-dark" type="button">KEEP DARK</button>
+        <button class="button button-light" id="confirm-light" type="button">SWITCH TO LIGHT</button>
+      </div>
+    </div>
+  </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>

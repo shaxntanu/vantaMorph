@@ -107,7 +107,7 @@ class ParticleCloud extends HTMLElement {
   constructor() {
     super();
     this._options = {
-      amplitude: 0.8, drift: 0.8, splash: 0.7, gather: 0.33, pointSize: 2.4, tint: "#ffe9c4",
+      amplitude: 0.2, drift: 0.04, splash: 0.25, gather: 0.85, pointSize: 2, tint: "#ffe9c4",
       track: true, links: true, scan: false, trails: false, marks: true,
       density: "sparse", paper: "dark", negative: true, travel: "swarm",
       line: { x: 0, y: 0, angle: 1.72, side: -1 }
@@ -256,11 +256,11 @@ class ParticleCloud extends HTMLElement {
   _readAttributes() {
     this._imageSource = this.getAttribute("image") || "";
     this._depthSource = this.getAttribute("depth") || "";
-    this._options.amplitude = Number(this.getAttribute("amplitude") ?? 0.8);
-    this._options.drift = Number(this.getAttribute("drift") ?? 0.8);
-    this._options.splash = Number(this.getAttribute("splash") ?? 0.7);
-    this._options.gather = Number(this.getAttribute("gather") ?? 0.33);
-    this._options.pointSize = Number(this.getAttribute("point-size") ?? 2.4);
+    this._options.amplitude = Number(this.getAttribute("amplitude") ?? 0.2);
+    this._options.drift = Number(this.getAttribute("drift") ?? 0.04);
+    this._options.splash = Number(this.getAttribute("splash") ?? 0.25);
+    this._options.gather = Number(this.getAttribute("gather") ?? 0.85);
+    this._options.pointSize = Number(this.getAttribute("point-size") ?? 2);
     this._options.tint = this.getAttribute("tint") || "#ffe9c4";
     this._options.line = {
       x: Number(this.getAttribute("line-x") ?? 0),

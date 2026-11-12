@@ -28,6 +28,14 @@
       </div>
       <div class="stage" id="drop-zone">
         <particle-cloud id="cloud" aria-label="Three dimensional particle image"></particle-cloud>
+        <div class="image-loader" id="image-loader" role="status" aria-live="polite" hidden>
+          <div class="loader-panel">
+            <span class="loader-spinner" aria-hidden="true"></span>
+            <span class="loader-step" id="loader-step">READING IMAGE</span>
+            <span class="loader-detail" id="loader-detail">PROCESSING IN YOUR BROWSER</span>
+            <span class="loader-meter" aria-hidden="true"><span></span></span>
+          </div>
+        </div>
         <div class="sample-state" id="empty-state">
           <span class="eyebrow">LIVE SAMPLE · vantaM.</span>
           <label class="button button-light" for="file-picker">ADD YOUR IMAGE ↗</label>

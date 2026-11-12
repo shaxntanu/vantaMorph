@@ -3,6 +3,9 @@ const picker = $("#file-picker");
 const cloud = $("#cloud");
 const dropZone = $("#drop-zone");
 const emptyState = $("#empty-state");
+const imageLoader = $("#image-loader");
+const loaderStep = $("#loader-step");
+const loaderDetail = $("#loader-detail");
 const statusLine = $("#model-status");
 const toast = $("#toast");
 const sourceRow = $("#source-row");
@@ -39,6 +42,16 @@ function showToast(message) {
   toast.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2100);
+}
+
+function setImageLoader(step, item = activeImage) {
+  imageLoader.hidden = !step;
+  if (!step) return;
+  loaderStep.textContent = step;
+  const index = imageGallery.indexOf(item);
+  loaderDetail.textContent = index < 0
+    ? "PROCESSING IN YOUR BROWSER"
+    : `IMAGE ${String(index + 1).padStart(2, "0")} OF ${String(imageGallery.length).padStart(2, "0")} · LOCAL ONLY`;
 }
 
 function updateOptions(updateSnippet = true) {
@@ -305,6 +318,7 @@ function activateImage(item) {
   emptyState.hidden = true;
 
   if (item.status === "failed") {
+    setImageLoader("");
     const displayed = imageGallery.find((entry) => entry !== item && entry.status === "ready" && entry.image === sourceImage);
     if (displayed) {
       activeImage = displayed;
@@ -324,6 +338,7 @@ function activateImage(item) {
     return;
   }
   if (item.status !== "ready") {
+    setImageLoader(item.status === "queued" ? "WAITING IN QUEUE" : item.status === "depth" ? "BUILDING DEPTH MAP" : "READING IMAGE", item);
     if (!sourceImage) {
       $("#active-name").textContent = item.name.toUpperCase();
       sourceRow.hidden = true;
@@ -336,6 +351,7 @@ function activateImage(item) {
     return;
   }
 
+  setImageLoader("BUILDING PARTICLE FIELD", item);
   sourceImage = item.image;
   depthImage = item.depth;
   sourceName = item.name;
@@ -349,6 +365,7 @@ function activateImage(item) {
   statusLine.textContent = "TRANSFORMING PARTICLES";
   cloud.setData({ image: sourceImage, depth: depthImage }).then(() => {
     if (version !== activationVersion) return;
+    setImageLoader("");
     updateOptions();
     $("#point-count").textContent = cloud.pointCount.toLocaleString() + " POINTS";
     statusLine.textContent = item.fallback
@@ -369,7 +386,10 @@ async function processQueue() {
       if (!imageGallery.includes(item)) continue;
       item.status = "reading";
       renderGallery();
-      if (activeImage === item) statusLine.textContent = "READING IMAGE · KEEP THIS TAB OPEN";
+      if (activeImage === item) {
+        setImageLoader("READING IMAGE", item);
+        statusLine.textContent = "READING IMAGE · KEEP THIS TAB OPEN";
+      }
       let bitmap;
       try {
         bitmap = await decodeImage(item.file);
@@ -381,7 +401,10 @@ async function processQueue() {
         item.height = bitmap.height;
         item.status = "depth";
         renderGallery();
-        if (activeImage === item) statusLine.textContent = "LOADING DEPTH MODEL · IMAGE STAYS LOCAL";
+        if (activeImage === item) {
+          setImageLoader("BUILDING DEPTH MAP", item);
+          statusLine.textContent = "LOADING DEPTH MODEL · IMAGE STAYS LOCAL";
+        }
 
         let depthValues;
         try {
@@ -469,6 +492,7 @@ function clearActiveImage() {
   $("#source-dimensions").textContent = "";
   $("#thumb").style.backgroundImage = "";
   sourceRow.hidden = true;
+  setImageLoader("");
   copyButton.disabled = true;
   downloadButton.disabled = true;
   embedField.value = "";
@@ -737,6 +761,7 @@ cloud.addEventListener("points-ready", (event) => {
   $("#point-count").textContent = event.detail.count.toLocaleString() + " POINTS";
 });
 cloud.addEventListener("render-error", (event) => {
+  setImageLoader("");
   statusLine.textContent = event.detail || "WEBGL COULD NOT START";
 });
 
